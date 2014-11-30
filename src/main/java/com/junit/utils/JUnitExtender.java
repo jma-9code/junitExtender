@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +16,9 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Task;
+
 import com.junit.utils.pojo.Classe;
 import com.junit.utils.pojo.Method;
 import com.junit.utils.pojo.Root;
@@ -22,48 +26,76 @@ import com.junit.utils.pojo.TestcaseExtender;
 import com.junit.utils.pojo.generated.Testcase;
 import com.junit.utils.pojo.generated.Testsuite;
 import com.junit.utils.pojo.generated.Testsuites;
+import com.sun.tools.javadoc.Main;
 
-public class Main {
-
-	public static void main(String[] args) throws JAXBException, IOException {
-	    String path_javadoc = "C:\\Users\\Julien\\Desktop\\javadoc.xml";
-	    String path_report = "D:\\Development\\workspace\\Test\\junit";
-	    File file = new File(path_javadoc);
-	    Root root_javadoc = readData(file);
-	    List<Testsuite> testsuits = readDataTest(path_report);
-	    
-	    //TODO add description class
-	    for (Testsuite ts : testsuits){
-	    	for (Classe c : root_javadoc.getClasses()){
-	    		if (c.getQualifiedName().equals(ts.getName())){
-	    			List<TestcaseExtender> tces = new ArrayList<TestcaseExtender>();
-	    			for (Testcase tc : ts.getTestcase()){
-	    		    	for (Method m : c.getMethods()){
-	    		    		if (m.getQualifiedName().equals(tc.getClassname()+ "." + tc.getName())){
-	    		    			TestcaseExtender tce = new TestcaseExtender(tc, m.getDescription(), m.getTags());
-	    		    			tces.add(tce);
-	    		    		}
-	    		    	}
-	    		    }
-	    			ts.getTestcase().clear();
-	    			ts.getTestcase().addAll(tces);
-	    		}
-	    	}	
-	    	writeTS(ts);
-	    } 
-	    
-	    
-
+public class JUnitExtender extends Task {
+	
+	private String path_javadoc;
+	private File path_docletXML;
+	private String path_junitreport;
+	private String path_junitreportextender;
+	
+	public void execute() throws BuildException{
+		try{
+			path_docletXML = Files.createTempFile("junitextender", "doclet.xml").toFile();
+			String[] args ={"-doclet","com.junit.utils.DocletXML", "-sourcepath", path_javadoc, "-subpackages", "main" 
+					,  "-classpath", "d:\\Development\\IDE\\eclipse\\plugins\\org.junit_4.11.0.v201303080030\\junit.jar","-outputdir", path_docletXML.getAbsolutePath()};
+			System.out.println(Arrays.toString(args));
+			Main.execute(args);
+			
+			System.out.println("BACK TO JAVADOC");
+		    Root root_javadoc = readData(path_docletXML);
+		    System.out.println(root_javadoc);
+		    System.out.println("READ " + path_junitreport);
+		    List<Testsuite> testsuits = readDataTest(path_junitreport);
+		    System.out.println("BACK TO PROGRAMS" + testsuits);
+		    //TODO add description class
+		    for (Testsuite ts : testsuits){
+		    	for (Classe c : root_javadoc.getClasses()){
+		    		if (c.getQualifiedName().equals(ts.getName())){
+		    			List<TestcaseExtender> tces = new ArrayList<TestcaseExtender>();
+		    			for (Testcase tc : ts.getTestcase()){
+		    		    	for (Method m : c.getMethods()){
+		    		    		if (m.getQualifiedName().equals(tc.getClassname()+ "." + tc.getName())){
+		    		    			TestcaseExtender tce = new TestcaseExtender(tc, m.getDescription(), m.getTags());
+		    		    			tces.add(tce);
+		    		    		}
+		    		    	}
+		    		    }
+		    			ts.getTestcase().clear();
+		    			ts.getTestcase().addAll(tces);
+		    		}
+		    	}	
+				writeTS(ts);
+				
+		    }
+		}catch (JAXBException | IOException e) {
+			throw new BuildException(e);
+		}
 	}
 	
-	private static void writeTS(Testsuite ts) throws JAXBException, IOException{
+	public void setJUnitReport(String path){
+		path_junitreport = path;
+	}
+	
+	public void setJavadoc(String path){
+		path_javadoc = path;
+	}
+	
+	public void setJUnitReportExtender(String path){
+		path_junitreportextender = path;
+	}
+
+	
+	private void writeTS(Testsuite ts) throws JAXBException, IOException{
 		JAXBContext context = JAXBContext
 				.newInstance(new Class[] { Testsuite.class, TestcaseExtender.class });
 		Marshaller marshaller = context.createMarshaller();
-		marshaller.setProperty("jaxb.formatted.output",
+		marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT,
 				Boolean.valueOf(true));
-		Files.createDirectories(Paths.get("reports"));
-		marshaller.marshal(ts, new File("reports/TEST-" + ts.getName() + ".xml"));
+		System.out.println("CREATE " + path_junitreportextender);
+		Files.createDirectories(Paths.get(path_junitreportextender));
+		marshaller.marshal(ts, new File(path_junitreportextender + "/TEST-" + ts.getName() + ".xml"));
 	}
 	
 	private static Root readData(File f) throws JAXBException{

@@ -14,13 +14,13 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.bind.JAXB;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
 
 public class DocletXML extends Doclet{
 	
-	private static final String JAVADOC_DOCLET_FILE = "/javadoc.xml";
-	private static String outputdir = "c:\\";
+	private static String outputdir;
 	
 	public static boolean start(RootDoc rootdoc) {
 		
@@ -51,9 +51,9 @@ public class DocletXML extends Doclet{
 			JAXBContext context = JAXBContext
 					.newInstance(new Class[] { Root.class });
 			Marshaller marshaller = context.createMarshaller();
-			marshaller.setProperty("jaxb.formatted.output",
+			marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT,
 					Boolean.valueOf(true));
-			marshaller.marshal(root, new File(outputdir + JAVADOC_DOCLET_FILE));
+			marshaller.marshal(root, new File(outputdir));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
